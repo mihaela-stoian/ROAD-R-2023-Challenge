@@ -219,9 +219,8 @@ def perform_detection(args, net,  val_data_loader, val_dataset, iteration):
                     frame_num += step_size
                     save_data = {'main':save_data}
 
-                    preds_dict = update_preds_dict(videoname, frame_num, save_data, preds_dict)
-
                     if s<seq_len-args.skip_ending or store_last:
+                        preds_dict = update_preds_dict(videoname, frame_num, save_data, preds_dict)
                         with open(save_name,'wb') as ff:
                             pickle.dump(save_data, ff)
 
