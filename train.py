@@ -95,10 +95,11 @@ def run_train(args, train_data_loader, net, optimizer, epoch, iteration):
 
     batch_time = AverageMeter()
     data_time = AverageMeter()
-    losses = {'gt': AverageMeter(), 'ulb': AverageMeter()}
-    loc_losses = {'gt': AverageMeter(), 'ulb': AverageMeter()}
-    cls_losses = {'gt': AverageMeter(), 'ulb': AverageMeter()}
-    req_losses = {'gt': AverageMeter(), 'ulb': AverageMeter()}
+    losses = {'gt': AverageMeter(), 'ulb': AverageMeter(), 'all': AverageMeter()}
+    loc_losses = {'gt': AverageMeter(), 'ulb': AverageMeter(), 'all': AverageMeter()}
+    cls_losses = {'gt': AverageMeter(), 'ulb': AverageMeter(), 'all': AverageMeter()}
+    req_losses = {'gt': AverageMeter(), 'ulb': AverageMeter(), 'all': AverageMeter()}
+
     torch.cuda.synchronize()
     start = time.perf_counter()
 
@@ -117,9 +118,9 @@ def run_train(args, train_data_loader, net, optimizer, epoch, iteration):
         counts = mix_counts.cuda(0, non_blocking=True)
         img_indexs = mix_img_indexs
 
-        loc_loss_dict = {'gt': [], 'ulb': []}
-        conf_loss_dict = {'gt': [], 'ulb': []}
-        req_loss_dict = {'gt': [], 'ulb': []}
+        loc_loss_dict = {'gt': [], 'ulb': [], 'all': []}
+        conf_loss_dict = {'gt': [], 'ulb': [], 'all': []}
+        req_loss_dict = {'gt': [], 'ulb': [], 'all': []}
 
         iteration += 1
         if args.LOGIC is not None:
@@ -148,18 +149,28 @@ def run_train(args, train_data_loader, net, optimizer, epoch, iteration):
             loc_loss, conf_loss, req_loss = mix_loc_loss.mean(), mix_conf_loss.mean(), mix_req_loss.mean()
             loss = loc_loss + conf_loss + args.req_loss_weight * req_loss
 
-        for i, elem in enumerate(selected_is_ulb):
-            type_elem = 'ulb' if elem else 'gt'
-            loc_loss_dict[type_elem].append(mix_loc_loss[i])
-            conf_loss_dict[type_elem].append(mix_conf_loss[i])
+        if args.log_ulb_gt_separately:  # for DataParallel only
+            for i, elem in enumerate(selected_is_ulb):
+                type_elem = 'ulb' if elem else 'gt'
+                loc_loss_dict[type_elem].append(mix_loc_loss[i])  # for DataParallel only
+                conf_loss_dict[type_elem].append(mix_conf_loss[i])  # for DataParallel only
+                if args.LOGIC is not None:
+                    req_loss_dict[type_elem].append(mix_req_loss[i])
+        else:
+            type_elem = 'all'
+            loc_loss_dict[type_elem].append(mix_loc_loss.mean())
+            conf_loss_dict[type_elem].append(mix_conf_loss.mean())
             if args.LOGIC is not None:
-                req_loss_dict[type_elem].append(mix_req_loss[i])
+                req_loss_dict[type_elem].append(mix_req_loss.mean())
 
         loss.backward()
         optimizer.step()
 
         for elem in mix_mask_is_ulb.unique():
-            type_elem = 'ulb' if elem else 'gt'
+            if args.log_ulb_gt_separately:  # for DataParallel only
+                type_elem = 'ulb' if elem else 'gt'
+            else:
+                type_elem = 'all'
 
             loc_loss_dict[type_elem] = torch.tensor(loc_loss_dict[type_elem]).mean()
             conf_loss_dict[type_elem] = torch.tensor(conf_loss_dict[type_elem]).mean()
@@ -204,7 +215,8 @@ def run_train(args, train_data_loader, net, optimizer, epoch, iteration):
                                                                   req_losses[type_elem].avg, losses[type_elem].val,
                                                                   losses[type_elem].avg)
                 logger.info(print_line)
-
+            if type_elem == 'all':
+                break
 
         torch.cuda.synchronize()
         batch_time.update(time.perf_counter() - start)

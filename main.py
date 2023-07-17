@@ -213,6 +213,7 @@ def main():
 
     args = utils.set_args(args) # set directories and SUBSETS of datasets
     args.MULTI_GPUS = False if args.BATCH_SIZE == 1 else args.MULTI_GPUS
+    args.log_ulb_gt_separately = args.MULTI_GPUS and (torch.cuda.device_count() == args.BATCH_SIZE) # if number of gpus and batch size are equal, the losses for the unlabelled (ulb) and labelled (gt) samples are logged separately in tensorboard
     ## set random seeds and global settings
     seed_everything(args)
     torch.set_default_tensor_type('torch.FloatTensor')
