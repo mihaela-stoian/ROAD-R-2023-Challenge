@@ -384,7 +384,7 @@ class VideoDataset(tutils.data.Dataset):
         if ('train' in self.MODE) or ('test' not in self.SUBSETS):
             self.anno_file = os.path.join(self.root, 'road_trainval_v1.0.json')
         else:
-            self.anno_file = os.path.join(self.root, 'road_test_v1.0.json')
+            self.anno_file = os.path.join(self.root, 'blank_road_test_v1.0.json')
 
         with open(self.anno_file,'r') as fff:
             final_annots = json.load(fff)
