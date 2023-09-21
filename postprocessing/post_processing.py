@@ -67,13 +67,20 @@ def call_solver(temp_file_path):
     time_elapsed = end-start
     solver_output = output.stdout.decode("utf-8").splitlines()
 
+    assigned = False
     cost=-1
     for line in solver_output:
         if line[0] == 'o':
             cost = line.split()[1]
         elif line[0] =='v':
+            assigned = True
             assignment = line.split()[1:]
             assert len(assignment)==41#, "length assignment (%d)" % len(assignment)
+    if not assigned: 
+        print("Error in processing solver's output")
+        print("Solver's output:")
+        print(output.stdout.decode("utf-8"))
+        exit(-1)
 
     return float(cost), assignment, time_elapsed    
 
